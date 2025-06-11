@@ -17,20 +17,20 @@ x-default-volumes: &default-volumes
     source: ${HOST_WORK_PATH}/Project/${PROJECT_NAME}
     target: ${DOCKER_WORK_PATH}/Project/${PROJECT_NAME}
   
-  x-default-environment: &default-environment
-    - DISPLAY
-    - QT_X11_NO_MITSHM=1
-    - XAUTHORITY=${TMP_XAUTH}
-    - TERM
-    - DOCKER_WORK_PATH_ARG=${DOCKER_WORK_PATH}
+x-default-environment: &default-environment
+  - DISPLAY
+  - QT_X11_NO_MITSHM=1
+  - XAUTHORITY=${TMP_XAUTH}
+  - TERM
+  - DOCKER_WORK_PATH_ARG=${DOCKER_WORK_PATH}
 
-  x-default-deploy: &default-deploy
-    resources:
-      reservations:
-        devices:
-          - driver: nvidia
-            count: all
-            capabilities: [ gpu ]
+x-default-deploy: &default-deploy
+  resources:
+    reservations:
+      devices:
+        - driver: nvidia
+          count: all
+          capabilities: [ gpu ]
 
 services:
   # This service is the vnc desktop image
@@ -46,7 +46,7 @@ services:
       - seccomp:unconfined
     deploy: *default-deploy
   
-  dexteroushand:
+  dachii-dexteroushand:
     profiles: [ "base" ]
     build:
       context: ./

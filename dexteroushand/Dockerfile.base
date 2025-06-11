@@ -11,14 +11,14 @@ ENV DOCKER_WORK_PATH=${DOCKER_WORK_PATH_ARG}
 ENV LANG=C.UTF-8
 ENV DEBIAN_FRONTEND=noninteractive
 
-USER daichi.azuma
-
-WORKDIR ${DOCKER_WORK_PATH}
+USER root
 
 # make directory to volume mount and bind mount
 RUN mkdir -p ${DOCKER_WORK_PATH}/Data && \
     mkdir -p ${DOCKER_WORK_PATH}/Project && \
     mkdir -p ${DOCKER_WORK_PATH}/Volume
+
+WORKDIR ${DOCKER_WORK_PATH}
 
 # Install dependencies and remove cache
 RUN --mount=type=cache,target=/var/cache/apt \
