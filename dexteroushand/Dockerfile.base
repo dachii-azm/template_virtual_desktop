@@ -28,14 +28,35 @@ RUN --mount=type=cache,target=/var/cache/apt \
     git \
     git-lfs \
     libglib2.0-0 \
-    ncurses-term && \
-    apt -y autoremove && apt clean autoclean && \
-    rm -rf /var/lib/apt/lists/*
+    ncurses-term \
+    wget \
+    vim \
+    sudo \
+    software-properties-common \
+    lsb-release \
+    libopenblas-dev \
+    libopencv-dev
+
+ENV CUDA_HOME /usr/local/cuda-11.6
 
 # Install Cmake
 RUN wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor - | tee /etc/apt/trusted.gpg.d/kitware.gpg >/dev/null && \
     apt-add-repository "deb https://apt.kitware.com/ubuntu/ focal main" && \
     apt update && apt install cmake -y
+
+## Copy IsaacGym directory (files to exclude are defined in .dockerignore)
+RUN --mount=type=cache,target=/var/cache/apt \
+    cd ${DOCKER_WORK_PATH} && \
+    wget -O isaacgym.tar.gz https://developer.nvidia.com/isaac-gym-preview-4 && \
+    tar -xzvf isaacgym.tar.gz && \
+    rm -rf isaacgym.tar.gz
+
+RUN cd ${DOCKER_WORK_PATH} && \
+    git clone https://github.com/dachii-azm/neuralfeels.git && \
+    cd ${DOCKER_WORK_PATH}/neuralfeels && git checkout isaacgym && git pull origin isaacgym
+
+RUN cd ${DOCKER_WORK_PATH} && \
+    git clone https://github.com/facebookresearch/tacto.git
 
 # Install Miniconda
 RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh \
@@ -48,32 +69,18 @@ RUN conda init bash
 
 RUN conda create -n test python=3.8 -y
 
-# Set up the environment
 SHELL ["/bin/bash", "--login", "-c"]
 SHELL ["conda", "run", "-n", "test", "/bin/bash", "-c"]
 
-## Copy IsaacGym directory (files to exclude are defined in .dockerignore)
-RUN --mount=type=cache,target=/var/cache/apt \
-    cd ${DOCKER_WORK_PATH} && \
-    wget -O isaacgym.tar.gz https://developer.nvidia.com/isaac-gym-preview-4 && \
-    tar -xzvf isaacgym.tar.gz && \
-    rm -rf isaacgym.tar.gz && \
-    cd ${DOCKER_WORK_PATH}/isaacgym && \
-    pip install -e . 
+RUN cd ${DOCKER_WORK_PATH}/isaacgym && \
+    pip install -e . && pip install toml
 
-RUN pip install toml
-
-RUN cd ${DOCKER_WORK_PATH} && \
-    git clone https://github.com/dachii-azm/neuralfeels.git && \
-    cd ${DOCKER_WORK_PATH}/neuralfeels && git checkout isaacgym && git pull origin isaacgym && \
+RUN cd ${DOCKER_WORK_PATH}/neuralfeels && \
     pip install matplotlib gitpython numpy==1.20.3 wandb && \
     pip install pillow==9.* && \
     pip install -e .
 
-RUN cd ${DOCKER_WORK_PATH} && \
-    git clone https://github.com/facebookresearch/tacto.git && \
-    cd tacto && \
+RUN cd ${DOCKER_WORK_PATH}/tacto && \
     pip install -e . 
 
-
-
+CMD ["/bin/bash"]

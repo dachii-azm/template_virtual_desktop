@@ -47,15 +47,15 @@ services:
     deploy: *default-deploy
   
   dachii-dexteroushand:
-    profiles: [ "base" ]
+    profiles: [ "dachii-base" ]
     build:
       context: ./
       dockerfile: Dockerfile.base
       args:
         - DOCKER_WORK_PATH=${DOCKER_WORK_PATH}
-      image: dachii-dexteroushand
-      depends_on:
-        - dachii-desktop
+    image: dachii-dexteroushand
+    depends_on:
+      - dachii-desktop
     environment: *default-environment
     volumes: *default-volumes
     deploy: *default-deploy
