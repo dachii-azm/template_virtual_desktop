@@ -22,7 +22,7 @@ x-default-environment: &default-environment
   - QT_X11_NO_MITSHM=1
   - XAUTHORITY=${TMP_XAUTH}
   - TERM
-  - DOCKER_WORK_PATH_ARG=${DOCKER_WORK_PATH}
+  - DOCKER_WORK_PATH=${DOCKER_WORK_PATH}
 
 x-default-deploy: &default-deploy
   resources:
@@ -52,7 +52,7 @@ services:
       context: ./
       dockerfile: Dockerfile.base
       args:
-        - DOCKER_WORK_PATH=${DOCKER_WORK_PATH}
+        - DOCKER_WORK_PATH_ARG=${DOCKER_WORK_PATH}
     image: dachii-dexteroushand
     depends_on:
       - dachii-desktop
