@@ -1,0 +1,67 @@
+x-default-volumes: &default-volumes
+  # edit this volume s/t name to match your project
+  - type: volume
+    source: dexteroushand-volume
+    target: ${DOCKER_WORK_PATH}/Volume
+  - type: bind
+    source: /tmp/.X11-unix
+    target: /tmp/.X11-unix
+  - type: bind
+    source: /etc/localtime
+    target: /etc/localtime
+    read_only: true
+  - type: bind
+    source: ${HOST_WORK_PATH}/Data/${PROJECT_NAME}
+    target: ${DOCKER_WORK_PATH}/Data/${PROJECT_NAME}
+  - type: bind
+    source: ${HOST_WORK_PATH}/Project/${PROJECT_NAME}
+    target: ${DOCKER_WORK_PATH}/Project/${PROJECT_NAME}
+  
+x-default-environment: &default-environment
+  - DISPLAY
+  - QT_X11_NO_MITSHM=1
+  - XAUTHORITY=${TMP_XAUTH}
+  - TERM
+  - DOCKER_WORK_PATH=${DOCKER_WORK_PATH}
+
+x-default-deploy: &default-deploy
+  resources:
+    reservations:
+      devices:
+        - driver: nvidia
+          count: all
+          capabilities: [ gpu ]
+
+services:
+  # This service is the vnc desktop image
+  dachii-desktop:
+    image: ghcr.io/matsuolab/virtual_desktop:latest
+    runtime: nvidia
+    environment: *default-environment
+    ports:
+      - "${WEB_PORT}:6080"
+    volumes:
+      - "/tmp/.X11-unix:/tmp/.X11-unix:rw"
+    security_opt:
+      - seccomp:unconfined
+    deploy: *default-deploy
+  
+  dachii-dexteroushand:
+    profiles: [ "dachii-base" ]
+    build:
+      context: ./
+      dockerfile: Dockerfile.base
+      args:
+        - DOCKER_WORK_PATH_ARG=${DOCKER_WORK_PATH}
+    image: dachii-dexteroushand
+    depends_on:
+      - dachii-desktop
+    environment: *default-environment
+    volumes: *default-volumes
+    deploy: *default-deploy
+    entrypoint: bash
+    stdin_open: true
+    tty: true
+
+volumes:
+  dexteroushand-volume:
