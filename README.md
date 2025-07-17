@@ -15,7 +15,7 @@ docker compose --env-file .env --file docker-compose.yaml build ${NAME} --no-cac
 
 The next...
 ```
-docker compose --env-file .env --file docker-compose.yaml --profile ${NAME} up -d --remove-orphans
+docker compose --env-file .env --file docker-compose.yaml --profile ${PROFILE_NAME} up -d --remove-orphans
 ```
 ```
 docker exec --interactive --tty -e DISPLAY=${DISPLAY} ${PS NAME} /bin/bash

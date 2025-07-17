@@ -40,6 +40,8 @@ RUN --mount=type=cache,target=/var/cache/apt \
     libopencv-dev
 
 ENV CUDA_HOME /usr/local/cuda-11.8
+ENV LD_LIBRARY_PATH /usr/local/cuda-11.8/lib64:$LD_LIBRARY_PATH
+ENV PATH /usr/local/cuda-11.8/bin:$PATH
 
 # Install Cmake
 RUN wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor - | tee /etc/apt/trusted.gpg.d/kitware.gpg >/dev/null && \
@@ -138,5 +140,8 @@ RUN cd ${DOCKER_WORK_PATH}/neuralfeels/thirds/neuralfeels && \
 
 RUN cd ${DOCKER_WORK_PATH}/neuralfeels/thirds/neuralfeels && \
     conda run -n neuralfeels pip install -e .
+
+RUN cd ${DOCKER_WORK_PATH}/neuralfeels/thirds/neuralfeels && \
+    conda run -n neuralfeels pip install numpy==1.24.4 semantic-version==2.10.0 
 
 CMD ["/bin/bash"]
