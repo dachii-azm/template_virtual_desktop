@@ -1,0 +1,147 @@
+#FROM nvcr.io/nvidia/cuda:11.6.0-cudnn8-devel-ubuntu20.04
+FROM nvcr.io/nvidia/cuda:11.8.0-cudnn8-devel-ubuntu20.04
+#FROM nvidia/cuda:11.8.0-cudnn8-devel-ubi8
+
+SHELL ["/bin/bash", "-c"]
+
+LABEL version="1.0"
+LABEL description="Dockerfile for building and running the Dexterous Hand framework inside a CUDA-enabled container image."
+
+ARG DOCKER_WORK_PATH_ARG
+ENV DOCKER_WORK_PATH=${DOCKER_WORK_PATH_ARG}
+
+ENV LANG=C.UTF-8
+ENV DEBIAN_FRONTEND=noninteractive
+
+USER root
+
+# make directory to volume mount and bind mount
+RUN mkdir -p ${DOCKER_WORK_PATH}/Data && \
+    mkdir -p ${DOCKER_WORK_PATH}/Project && \
+    mkdir -p ${DOCKER_WORK_PATH}/Volume
+
+WORKDIR ${DOCKER_WORK_PATH}
+
+# Install dependencies and remove cache
+RUN --mount=type=cache,target=/var/cache/apt \
+    apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    cmake \
+    git \
+    git-lfs \
+    libglib2.0-0 \
+    ncurses-term \
+    wget \
+    vim \
+    sudo \
+    software-properties-common \
+    lsb-release \
+    libopenblas-dev \
+    libopencv-dev
+
+ENV CUDA_HOME /usr/local/cuda-11.8
+ENV LD_LIBRARY_PATH /usr/local/cuda-11.8/lib64:$LD_LIBRARY_PATH
+ENV PATH /usr/local/cuda-11.8/bin:$PATH
+
+# Install Cmake
+RUN wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor - | tee /etc/apt/trusted.gpg.d/kitware.gpg >/dev/null && \
+    apt-add-repository "deb https://apt.kitware.com/ubuntu/ focal main" && \
+    apt update && apt install cmake -y
+
+## Copy IsaacGym directory (files to exclude are defined in .dockerignore)
+RUN cd ${DOCKER_WORK_PATH} && \
+    wget -O isaacgym.tar.gz https://developer.nvidia.com/isaac-gym-preview-4 && \
+    tar -xzvf isaacgym.tar.gz && \
+    rm -rf isaacgym.tar.gz
+
+RUN cd ${DOCKER_WORK_PATH} && \
+    git clone https://github.com/dachii-azm/neuralfeels.git && \
+    cd ${DOCKER_WORK_PATH}/neuralfeels && git checkout isaacgym && git pull origin isaacgym
+
+RUN cd ${DOCKER_WORK_PATH} && \
+    git clone https://github.com/facebookresearch/tacto.git
+
+# Install Miniconda
+RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh \
+    && bash miniconda.sh -b -p /opt/conda \
+    && rm miniconda.sh
+
+ENV PATH="/opt/conda/bin:$PATH"
+
+RUN conda init bash
+
+RUN conda create -n test python=3.8 -y
+
+SHELL ["/bin/bash", "-c"]
+
+ENV CONDA_NO_PLUGINS=true
+
+RUN cd ${DOCKER_WORK_PATH}/isaacgym/python && \
+    conda run -n test python -m pip install -e . && \
+    conda run -n test python -m pip install toml
+
+RUN cd ${DOCKER_WORK_PATH}/neuralfeels && \
+    conda run -n test python -m pip install matplotlib gitpython numpy==1.20.3 wandb && \
+    conda run -n test python -m pip install pillow==9.* && \
+    conda run -n test python -m pip install -e .
+
+RUN cd ${DOCKER_WORK_PATH}/tacto && \
+    conda run -n test python -m pip install -e . 
+
+RUN conda run -n test python -m pip install torch==2.1.2+cu118 torchvision==0.16.2+cu118 torchaudio==2.1.2+cu118 --extra-index-url https://download.pytorch.org/whl/cu118
+RUN conda run -n test python -m pip install numpy==1.23.5 pybulletX
+
+## install neuralfeels
+RUN cd ${DOCKER_WORK_PATH}/neuralfeels/thirds/neuralfeels && \
+    conda config --set solver classic && \
+    conda env create -f environment.yml -n neuralfeels
+
+RUN cd ${DOCKER_WORK_PATH}/neuralfeels/thirds/neuralfeels && \
+    conda run -n neuralfeels pip uninstall torch torchvision functorch tinycudann -y
+
+RUN cd ${DOCKER_WORK_PATH}/neuralfeels/thirds/neuralfeels && \
+    conda run -n neuralfeels pip install torch==2.1.2+cu118 torchvision==0.16.2+cu118 --extra-index-url https://download.pytorch.org/whl/cu118
+
+# Install tinycudann for instant-ngp backbone. Common issues:
+# - Setup with gcc/g++ 9 if it throws errors (see issue: https://github.com/NVlabs/tiny-cuda-nn/issues/284)
+# - Differing compute capabilities: https://github.com/NVlabs/tiny-cuda-nn/issues/341#issuecomment-1651814335
+# Try installing tiny-cuda-nn with default settings first
+RUN cd ${DOCKER_WORK_PATH}/neuralfeels/thirds/neuralfeels && \
+    conda run -n neuralfeels pip install ninja \
+    git+https://github.com/facebookresearch/segment-anything.git \
+    git+https://github.com/suddhu/tacto.git@master
+
+
+RUN apt-get update && apt-get install -y gcc-9 g++-9
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 90
+RUN update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-9 90
+
+# Install additional build dependencies for scientific packages
+RUN apt-get update && apt-get install -y \
+    libblas-dev \
+    liblapack-dev \
+    libsuitesparse-dev \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install tiny-cuda-nn separately to handle potential GCC issues
+# Set CUDA architectures for tiny-cuda-nn compilation
+# RTX 6000 Ada Generation uses compute capability 8.9
+# ENV TCNN_CUDA_ARCHITECTURES="75;80;86"
+ENV TCNN_CUDA_ARCHITECTURES="89"
+RUN cd ${DOCKER_WORK_PATH}/neuralfeels/thirds/neuralfeels && \
+    conda run -n neuralfeels pip install git+https://github.com/NVlabs/tiny-cuda-nn/#subdirectory=bindings/torch
+
+RUN cd ${DOCKER_WORK_PATH}/neuralfeels/thirds/neuralfeels && \
+    conda run -n neuralfeels conda install -y suitesparse
+
+RUN cd ${DOCKER_WORK_PATH}/neuralfeels/thirds/neuralfeels && \
+    conda run -n neuralfeels conda install -c conda-forge theseus-ai -y
+
+RUN cd ${DOCKER_WORK_PATH}/neuralfeels/thirds/neuralfeels && \
+    conda run -n neuralfeels pip install -e .
+
+RUN cd ${DOCKER_WORK_PATH}/neuralfeels/thirds/neuralfeels && \
+    conda run -n neuralfeels pip install numpy==1.24.4 semantic-version==2.10.0 
+
+CMD ["/bin/bash"]

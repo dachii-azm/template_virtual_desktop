@@ -1,0 +1,90 @@
+FROM nvcr.io/nvidia/cuda:11.6.0-cudnn8-devel-ubuntu20.04
+
+SHELL ["/bin/bash", "-c"]
+
+LABEL version="1.0"
+LABEL description="Dockerfile for building and running the Dexterous Hand framework inside a CUDA-enabled container image."
+
+ARG DOCKER_WORK_PATH_ARG
+ENV DOCKER_WORK_PATH=${DOCKER_WORK_PATH_ARG}
+
+ENV LANG=C.UTF-8
+ENV DEBIAN_FRONTEND=noninteractive
+
+USER root
+
+# make directory to volume mount and bind mount
+RUN mkdir -p ${DOCKER_WORK_PATH}/Data && \
+    mkdir -p ${DOCKER_WORK_PATH}/Project && \
+    mkdir -p ${DOCKER_WORK_PATH}/Volume
+
+WORKDIR ${DOCKER_WORK_PATH}
+
+# Install dependencies and remove cache
+RUN --mount=type=cache,target=/var/cache/apt \
+    apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    cmake \
+    git \
+    git-lfs \
+    libglib2.0-0 \
+    ncurses-term \
+    wget \
+    vim \
+    sudo \
+    software-properties-common \
+    lsb-release \
+    libopenblas-dev \
+    libopencv-dev
+
+ENV CUDA_HOME /usr/local/cuda-11.6
+
+# Install Cmake
+RUN wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor - | tee /etc/apt/trusted.gpg.d/kitware.gpg >/dev/null && \
+    apt-add-repository "deb https://apt.kitware.com/ubuntu/ focal main" && \
+    apt update && apt install cmake -y
+
+## Copy IsaacGym directory (files to exclude are defined in .dockerignore)
+RUN --mount=type=cache,target=/var/cache/apt \
+    cd ${DOCKER_WORK_PATH} && \
+    wget -O isaacgym.tar.gz https://developer.nvidia.com/isaac-gym-preview-4 && \
+    tar -xzvf isaacgym.tar.gz && \
+    rm -rf isaacgym.tar.gz
+
+RUN cd ${DOCKER_WORK_PATH} && \
+    git clone https://github.com/dachii-azm/neuralfeels.git && \
+    cd ${DOCKER_WORK_PATH}/neuralfeels && git checkout isaacgym && git pull origin isaacgym
+
+RUN cd ${DOCKER_WORK_PATH} && \
+    git clone https://github.com/facebookresearch/tacto.git
+
+# Install Miniconda
+RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh \
+    && bash miniconda.sh -b -p /opt/conda \
+    && rm miniconda.sh
+
+ENV PATH="/opt/conda/bin:$PATH"
+
+RUN conda init bash
+
+RUN conda create -n test python=3.8 -y
+
+SHELL ["/bin/bash", "-c"]
+
+ENV CONDA_NO_PLUGINS=true
+
+RUN cd ${DOCKER_WORK_PATH}/isaacgym/python && \
+    conda run -n test python -m pip install -e . && \
+    conda run -n test python -m pip install toml
+
+RUN cd ${DOCKER_WORK_PATH}/neuralfeels && \
+    conda run -n test python -m pip install matplotlib gitpython numpy==1.20.3 wandb && \
+    conda run -n test python -m pip install pillow==9.* && \
+    conda run -n test python -m pip install -e .
+
+RUN cd ${DOCKER_WORK_PATH}/tacto && \
+    conda run -n test python -m pip install -e . 
+
+RUN conda run -n test python -m pip install torch==1.13.1+cu116 torchvision==0.14.1+cu116 torchaudio==0.13.1 --extra-index-url https://download.pytorch.org/whl/cu116
+RUN conda run -n test python -m pip install numpy==1.23.5 pybulletX
+CMD ["/bin/bash"]

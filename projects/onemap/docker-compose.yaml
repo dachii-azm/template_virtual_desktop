@@ -1,0 +1,78 @@
+x-default-volumes: &default-volumes
+  # edit this volume s/t name to match your project
+  - type: volume
+    source: onemap-volume
+    target: ${DOCKER_WORK_PATH}/Volume
+  - type: bind
+    source: /tmp/.X11-unix
+    target: /tmp/.X11-unix
+  - type: bind
+    source: /etc/localtime
+    target: /etc/localtime
+    read_only: true
+  - type: bind
+    source: ${HOST_WORK_PATH}/Data/${PROJECT_NAME}
+    target: ${DOCKER_WORK_PATH}/Data/${PROJECT_NAME}
+  - type: bind
+    source: ${HOST_WORK_PATH}/Project/${PROJECT_NAME}
+    target: ${DOCKER_WORK_PATH}/Project/${PROJECT_NAME}
+  # OneMap specific volumes
+  - type: bind
+    source: ${HM3D_PATH}
+    target: /onemap/datasets/versioned_data
+    read_only: true
+  
+x-default-environment: &default-environment
+  - DISPLAY
+  - QT_X11_NO_MITSHM=1
+  - XAUTHORITY=${TMP_XAUTH}
+  - TERM
+  - DOCKER_WORK_PATH=${DOCKER_WORK_PATH}
+  # OneMap specific environment variables
+  - HM3D=${HM3D}
+  - HM3D_PATH=${HM3D_PATH}
+  - NVIDIA_DRIVER_CAPABILITIES=all
+  - NVIDIA_VISIBLE_DEVICES=all
+
+x-default-deploy: &default-deploy
+  resources:
+    reservations:
+      devices:
+        - driver: nvidia
+          count: all
+          capabilities: [ gpu ]
+
+services:
+  # This service is the vnc desktop image
+  dachii-desktop:
+    image: ghcr.io/matsuolab/virtual_desktop:latest
+    runtime: nvidia
+    environment: *default-environment
+    ports:
+      - "${WEB_PORT}:6080"
+    volumes:
+      - "/tmp/.X11-unix:/tmp/.X11-unix:rw"
+    security_opt:
+      - seccomp:unconfined
+    deploy: *default-deploy
+  
+  dachii-onemap:
+    profiles: [ "dachii-onemap-base" ]
+    build:
+      context: ./
+      dockerfile: Dockerfile
+      args:
+        HM3D: ${HM3D}
+        HM3D_PATH: ${HM3D_PATH}
+    image: dachii-onemap
+    depends_on:
+      - dachii-desktop
+    environment: *default-environment
+    volumes: *default-volumes
+    deploy: *default-deploy
+    entrypoint: bash
+    stdin_open: true
+    tty: true
+
+volumes:
+  onemap-volume:
