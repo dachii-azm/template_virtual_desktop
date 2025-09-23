@@ -11,10 +11,10 @@ x-default-volumes: &default-volumes
     target: /etc/localtime
     read_only: true
   - type: bind
-    source: ${HOST_WORK_PATH}/Data/${PROJECT_NAME}
+    source: /storage3/dataset/daichi.azuma/${PROJECT_NAME}
     target: ${DOCKER_WORK_PATH}/Data/${PROJECT_NAME}
   - type: bind
-    source: ${HOST_WORK_PATH}/Project/${PROJECT_NAME}
+    source: ${HOST_WORK_PATH}/Project2/${PROJECT_NAME}
     target: ${DOCKER_WORK_PATH}/Project/${PROJECT_NAME}
   # OneMap specific volumes
   - type: bind
@@ -59,11 +59,12 @@ services:
   dachii-onemap:
     profiles: [ "dachii-onemap-base" ]
     build:
-      context: ./
-      dockerfile: Dockerfile
+      context: ${PROJECT_PATH}
+      dockerfile: ${TEMPLATE_PATH}/${PROJECT_NAME}/Dockerfile
       args:
         HM3D: ${HM3D}
         HM3D_PATH: ${HM3D_PATH}
+        PROJECT_PATH: ${PROJECT_PATH}
     image: dachii-onemap
     depends_on:
       - dachii-desktop

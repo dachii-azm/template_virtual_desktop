@@ -8,6 +8,9 @@ ARG HM3D_PATH
 ARG MATTERPORT_ID
 ARG MATTERPORT_SECRET
 
+# Declare the PROJECT_PATH argument
+ARG PROJECT_PATH
+
 # Validate HM3D argument and show usage
 RUN if [ -z "${HM3D}" ]; then \
         echo -e "\e[31mERROR: HM3D argument is required to be set in the .env file. Please specify one of:\e[0m"; \
@@ -55,7 +58,7 @@ RUN apt update && apt install -y --no-install-recommends \
     rm -rf /var/lib/apt/lists/*
 
 # #
-COPY requirements.txt .
+COPY ./requirements.txt .
 RUN python3 -m pip install gdown torch torchvision torchaudio meson
 RUN python3 -m pip install -r requirements.txt
 RUN python3 -m pip install --upgrade timm>=1.0.7
