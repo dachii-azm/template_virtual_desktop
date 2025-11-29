@@ -1,0 +1,77 @@
+services:
+  realsense:
+    build: realsense
+    image: realsense:12.6.1
+    runtime: nvidia
+    volumes:
+      - "/tmp/.X11-unix:/tmp/.X11-unix"
+      - "/dev:/dev"
+        #- "./livox/config:/opt/ros2_ws/src/livox_ros_driver2/config"
+    security_opt:
+      - seccomp:unconfined
+    ipc: host
+    network_mode: host
+    shm_size: '2gb'
+    privileged: true
+    environment:
+      - DISPLAY
+      - "QT_X11_NO_MITSHM=1"
+  autonomy:
+    build: autonomy_stack_diablo_setup
+    image: autonomy:12.6.1
+    runtime: nvidia
+    volumes:
+      - "/tmp/.X11-unix:/tmp/.X11-unix"
+      - "/dev:/dev"
+      - "./autonomy_stack_diablo_setup:/opt/autonomy"
+        #- "./livox/config:/opt/ros2_ws/src/livox_ros_driver2/config"
+    security_opt:
+      - seccomp:unconfined
+    ipc: host
+    network_mode: host
+    shm_size: '2gb'
+    privileged: true
+    environment:
+      - DISPLAY
+      - "QT_X11_NO_MITSHM=1"
+  lidar:
+    build: livox
+    runtime: nvidia
+    image: ros-livox:12.6.1
+    volumes:
+      - "/tmp/.X11-unix:/tmp/.X11-unix"
+      - "./livox/config:/opt/ros2_ws/src/livox_ros_driver2/config"
+    security_opt:
+      - seccomp:unconfined
+    ipc: host
+    network_mode: host
+    shm_size: '2gb'
+    devices:
+      - /dev/nvhost-ctrl-gpu
+      - /dev/nvhost-prof-gpu
+      - /dev/nvmap
+      - /dev/nvhost-gpu
+      - /dev/nvhost-as-gpu
+      - /dev/nvhost-power-gpu
+      - /dev/nvhost-nvsched-gpu
+      - /dev/nvhost-ctxsw-gpu
+      - /dev/nvhost-prof-gpu
+      - /dev/nvhost-sched-gpu
+      - /dev/nvhost-tsg-gpu
+
+    environment:
+      - DISPLAY
+      - "QT_X11_NO_MITSHM=1"
+    
+        #       /dev/nvhost-as-gpu        /dev/nvhost-ctxsw-gpu              /dev/nvidiactl       /dev/nvme0n1p2
+        #       /dev/nvhost-ctrl-gpu      /dev/nvhost-dbg-gpu                /dev/nvidia-modeset  /dev/nvme0n1p3
+        #       /dev/nvhost-ctrl-isp      /dev/nvhost-gpu                    /dev/nvmap           /dev/nvme0n1p4
+        #       /dev/nvhost-ctrl-isp-thi  /dev/nvhost-nvsched_ctrl_fifo-gpu  /dev/nvme0           /dev/nvme0n1p5
+        #       /dev/nvhost-ctrl-nvcsi    /dev/nvhost-nvsched-gpu            /dev/nvme0n1         /dev/nvme0n1p6
+        #       /dev/nvhost-ctrl-nvdla0   /dev/nvhost-power-gpu              /dev/nvme0n1p1       /dev/nvme0n1p7
+        #       /dev/nvhost-ctrl-nvdla1   /dev/nvhost-prof-ctx-gpu           /dev/nvme0n1p10      /dev/nvme0n1p8
+        #       /dev/nvhost-ctrl-pva0     /dev/nvhost-prof-dev-gpu           /dev/nvme0n1p11      /dev/nvme0n1p9
+        #       /dev/nvhost-ctrl-vi0      /dev/nvhost-prof-gpu               /dev/nvme0n1p12      /dev/nvme-fabrics
+        #       /dev/nvhost-ctrl-vi0-thi  /dev/nvhost-sched-gpu              /dev/nvme0n1p13      /dev/nvpps0
+        #       /dev/nvhost-ctrl-vi1      /dev/nvhost-tsg-gpu                /dev/nvme0n1p14      /dev/nvsciipc
+        #       /dev/nvhost-ctrl-vi1-thi  /dev/nvidia0                       /dev/nvme0n1p15
